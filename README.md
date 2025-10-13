@@ -3,11 +3,12 @@
 <div align="center">
 
  **A modern, type-safe HTTP client library for Go with advanced orchestration patterns**
+![espresso](./docs/espresso.png)
 
 
 [![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.21-blue)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Go Report Card](https://goreportcard.com/badge/github.com/Andrea-Cavallo/espresso)](https://goreportcard.com/report/github.com/Andrea-Cavallo/espresso)
+
 [Features](#-features) •
 [Installation](#-installation) •
 [Quick Start](#-quick-start) •
@@ -20,18 +21,18 @@
 
 ##  Features
 
-- ** Type-Safe**: Full generic support for compile-time type safety
-- ** Retry Logic**: Configurable retry strategies with exponential backoff and jitter
-- ** Circuit Breaker**: Automatic failure detection and recovery
-- ** Smart Caching**: Built-in caching with configurable TTL
-- ** Metrics**: Request tracking and performance monitoring
-- ** Rate Limiting**: Protect your APIs from overload
-- ** Authentication**: Support for Bearer, Basic, and custom authentication
-- ** Middleware**: Extensible middleware chain
-- ** Orchestration**: Complex API workflows made simple
-- ** Advanced Patterns**: Chain, Fan-Out, Saga, Batch, and Conditional patterns
-- ** Context Support**: Full context propagation and timeout handling
-- ** Response Switching**: Conditional branching based on response data
+- **Type-Safe**: Full generic support for compile-time type safety
+- **Retry Logic**: Configurable retry strategies with exponential backoff and jitter
+- **Circuit Breaker**: Automatic failure detection and recovery
+- **Smart Caching**: Built-in caching with configurable TTL
+- **Metrics**: Request tracking and performance monitoring
+- **Rate Limiting**: Protect your APIs from overload
+- **Authentication**: Support for Bearer, Basic, and custom authentication
+- **Middleware**: Extensible middleware chain
+- **Orchestration**: Complex API workflows made simple
+- **Advanced Patterns**: Chain, Fan-Out, Saga, Batch, and Conditional patterns
+- **Context Support**: Full context propagation and timeout handling
+- **Response Switching**: Conditional branching based on response data
 
 ##  Installation
 
@@ -720,7 +721,7 @@ result, err := client.Orchestrate().
 
 ---
 
-## 💡 Examples
+##  Examples
 
 ### Complete Example: E-commerce Checkout Flow
 
@@ -978,7 +979,7 @@ response, _ := client.Request("/api").Get(ctx)
 
 ---
 
-## 🔧 Advanced Configuration
+##  Advanced Configuration
 
 ### Custom Transport
 
@@ -1057,7 +1058,7 @@ client.SetCacheProvider(cache)
 
 ---
 
-## 📊 Metrics and Monitoring
+##  Metrics and Monitoring
 
 ```go
 type MetricsCollector struct {
@@ -1131,7 +1132,7 @@ go test -bench=. -benchmem
 
 ---
 
-## 📄 License
+##  License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
@@ -1151,8 +1152,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 <div align="center">
 
-**Made with ☕ by [Andrea Cavallo](https://github.com/Andrea-Cavallo)**
+**Made with  by [Andrea Cavallo](https://github.com/Andrea-Cavallo)**
 
-⭐ Star this repository if you find it useful!
+ Star this repository if you find it useful!
 
 </div>
