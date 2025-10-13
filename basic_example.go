@@ -42,8 +42,6 @@ type ErrorResponse struct {
 func main() {
 	ctx := context.Background()
 
-	fmt.Println("=== Espresso HTTP Client Examples ===\n")
-
 	// Esempi base
 	basicClientExample(ctx)
 	requestBuilderExample(ctx)
