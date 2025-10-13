@@ -81,13 +81,11 @@ func (op *OrchestrationPatterns[T]) Chain() *ChainBuilder[T] {
 func (cb *ChainBuilder[T]) Call(name string, builderFunc func(ctx map[string]any) RequestBuilder[T]) *ChainBuilder[T] {
 	step := cb.orchestration.Step(name, builderFunc)
 	if cb.lastStepName != "" {
-		// Aggiungi condizione che il passo precedente sia riuscito
 		step.When(func(ctx map[string]any) bool {
 			return ctx[cb.lastStepName+"_success"] == true
 		})
 	}
 
-	// Salva il risultato del successo nel context
 	step.OnSuccess(func(response *Response[T], ctx map[string]any) error {
 		ctx[name+"_success"] = true
 		ctx[name+"_result"] = response.Data
@@ -95,7 +93,7 @@ func (cb *ChainBuilder[T]) Call(name string, builderFunc func(ctx map[string]any
 	}).OnFail(func(err error, ctx map[string]any) error {
 		ctx[name+"_success"] = false
 		ctx[name+"_error"] = err
-		return nil // Non propagare per permettere la continuazione della catena
+		return nil
 	}).End()
 
 	cb.lastStepName = name
@@ -116,7 +114,6 @@ func (cb *ChainBuilder[T]) Call(name string, builderFunc func(ctx map[string]any
 //	    })
 func (cb *ChainBuilder[T]) OnSuccess(callback func(*Response[T], map[string]any) error) *ChainBuilder[T] {
 	if cb.lastStepName != "" {
-		// Modifica l'ultimo step aggiunto
 		lastStepIndex := len(cb.orchestration.steps) - 1
 		if lastStepIndex >= 0 {
 			originalOnSuccess := cb.orchestration.steps[lastStepIndex].OnSuccess
@@ -236,7 +233,7 @@ func (op *OrchestrationPatterns[T]) FanOut() *FanOutBuilder[T] {
 //	})
 func (fb *FanOutBuilder[T]) Add(name string, builderFunc func(ctx map[string]any) RequestBuilder[T]) *FanOutBuilder[T] {
 	fb.orchestration.Step(name, builderFunc).
-		Optional(). // Tutti gli step sono opzionali nel fan-out
+		Optional().
 		SaveToContext(name + "_result").
 		End()
 	return fb
@@ -597,23 +594,19 @@ func (op *OrchestrationPatterns[T]) RateLimited(limiter RateLimiter, key string)
 //	    return client.Request("https://api.example.com/data")
 //	}).End()
 func (rlb *RateLimitedBuilder[T]) Step(name string, builderFunc func(ctx map[string]any) RequestBuilder[T]) *StepBuilder[T] {
-	// Wrapper che applica rate limiting
 	wrappedBuilder := func(ctx map[string]any) RequestBuilder[T] {
 		return builderFunc(ctx)
 	}
 
 	step := rlb.orchestration.Step(name, wrappedBuilder)
 
-	// Aggiungi controllo rate limiting
 	originalCondition := step.step.Condition
 	step.When(func(ctx map[string]any) bool {
-		// Controlla rate limiting
 		if !rlb.limiter.Allow(rlb.key) {
 			ctx[name+"_rate_limited"] = true
 			return false
 		}
 
-		// Controlla condizione originale se presente
 		if originalCondition != nil {
 			return originalCondition(ctx)
 		}
@@ -666,7 +659,7 @@ type BatchBuilder[T any] struct {
 //	    WithItems(userIDs).
 //	    WithBatchSize(2). // Processa 2 alla volta
 //	    Execute(context.Background())
-//	
+//
 //	// Accedi ai risultati
 //	for i, step := range result.Steps {
 //	    if step.Success {
@@ -741,7 +734,7 @@ func (bb *BatchBuilder[T]) Sequential() *BatchBuilder[T] {
 //	if err != nil {
 //	    log.Fatalf("Batch fallito: %v", err)
 //	}
-//	
+//
 //	successCount := 0
 //	for _, step := range result.Steps {
 //	    if step.Success {

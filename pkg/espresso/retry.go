@@ -52,17 +52,14 @@ func NewRetryStrategy(config RetryConfig) *DefaultRetryStrategy {
 
 // ShouldRetry determina se dovremmo riprovare dopo un errore
 func (r *DefaultRetryStrategy) ShouldRetry(attempt int, err error, response *http.Response) bool {
-	// Non riprovare se abbiamo raggiunto il numero massimo di tentativi
 	if attempt >= r.config.MaxAttempts {
 		return false
 	}
 
-	// Se abbiamo una risposta HTTP, controlla lo status code
 	if response != nil {
 		return r.isRetriableStatusCode(response.StatusCode)
 	}
 
-	// Se abbiamo un errore, controlla se è retriable
 	if err != nil {
 		return r.isRetriableError(err)
 	}
@@ -107,7 +104,7 @@ func (r *DefaultRetryStrategy) calculateBaseDelay(attempt int) time.Duration {
 		return r.config.BaseDelay
 
 	default:
-		// Fallback a exponential
+
 		delay := time.Duration(float64(r.config.BaseDelay) * math.Pow(2, float64(attempt-1)))
 		if delay > r.config.MaxDelay {
 			delay = r.config.MaxDelay
@@ -154,7 +151,6 @@ func (r *DefaultRetryStrategy) applyDecorrelatedJitter(baseDelay time.Duration, 
 		return r.applyFullJitter(baseDelay)
 	}
 
-	// Per il jitter decorrelato, usiamo il delay precedente
 	prevDelay := r.calculateBaseDelay(attempt - 1)
 	maxDelay := time.Duration(float64(prevDelay) * 3)
 
@@ -186,7 +182,6 @@ func (r *DefaultRetryStrategy) isRetriableStatusCode(statusCode int) bool {
 
 // isRetriableError controlla se un errore è retriable
 func (r *DefaultRetryStrategy) isRetriableError(err error) bool {
-	// Controlla se l'errore è nella lista degli errori retriable
 	for _, retriableErr := range r.config.RetriableErrors {
 		if errors.Is(err, retriableErr) {
 			return true
@@ -208,7 +203,8 @@ func (r *DefaultRetryStrategy) isRetriableError(err error) bool {
 
 // isTimeoutError controlla se l'errore è un timeout
 func isTimeoutError(err error) bool {
-	if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
 		return true
 	}
 	return false
@@ -216,10 +212,12 @@ func isTimeoutError(err error) bool {
 
 // isConnectionError controlla se l'errore è di connessione
 func isConnectionError(err error) bool {
-	if netErr, ok := err.(net.Error); ok {
-		if opErr, ok := netErr.(*net.OpError); ok {
-			switch opErr.Err {
-			case syscall.ECONNREFUSED, syscall.ECONNRESET, syscall.ECONNABORTED:
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		var opErr *net.OpError
+		if errors.As(netErr, &opErr) {
+			switch {
+			case errors.Is(opErr.Err, syscall.ECONNREFUSED), errors.Is(opErr.Err, syscall.ECONNRESET), errors.Is(opErr.Err, syscall.ECONNABORTED):
 				return true
 			}
 		}
@@ -229,7 +227,8 @@ func isConnectionError(err error) bool {
 
 // isTemporaryError controlla se l'errore è temporaneo
 func isTemporaryError(err error) bool {
-	if netErr, ok := err.(net.Error); ok && netErr.Temporary() {
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Temporary() {
 		return true
 	}
 	return false

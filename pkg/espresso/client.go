@@ -32,7 +32,6 @@ func NewClient[T any](config ClientConfig) *Client[T] {
 		config: config,
 	}
 
-	// Inizializza HTTP client
 	client.httpClient = &http.Client{
 		Timeout:   config.Timeout,
 		Transport: config.Transport,
@@ -75,7 +74,6 @@ func (c *Client[T]) Request(url string) RequestBuilder[T] {
 func (c *Client[T]) executeRequest(ctx context.Context, method HTTPMethod, requestURL string, body any, config RequestConfig) (*Response[T], error) {
 	start := time.Now()
 
-	// Verifica cache se abilitata
 	if config.EnableCache && c.cache != nil && method == MethodGet && config.CacheKey != "" {
 		if cached, found := c.cache.Get(config.CacheKey); found {
 			return &Response[T]{
@@ -94,18 +92,15 @@ func (c *Client[T]) executeRequest(ctx context.Context, method HTTPMethod, reque
 		}
 	}
 
-	// Costruisci la richiesta
 	req, err := c.buildRequest(ctx, method, requestURL, body, config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build request: %w", err)
 	}
 
-	// Esegui con retry se abilitato
 	if config.EnableRetry && c.retry != nil {
 		return c.executeWithRetry(ctx, req, config, start)
 	}
 
-	// Esegui con circuit breaker se abilitato
 	if config.EnableCircuitBreaker && c.circuit != nil {
 		var response *Response[T]
 		err := c.circuit.Execute(func() error {
@@ -116,16 +111,13 @@ func (c *Client[T]) executeRequest(ctx context.Context, method HTTPMethod, reque
 		return response, err
 	}
 
-	// Esegui richiesta singola
 	return c.executeSingleRequest(ctx, req, config, start, 1)
 }
 
 // buildRequest costruisce la richiesta HTTP
 func (c *Client[T]) buildRequest(ctx context.Context, method HTTPMethod, requestURL string, body any, config RequestConfig) (*http.Request, error) {
-	// Costruisci URL completo
 	fullURL := c.buildURL(requestURL, config.QueryParams)
 
-	// Codifica il body se presente
 	var bodyReader io.Reader
 	var contentType string
 
@@ -138,7 +130,6 @@ func (c *Client[T]) buildRequest(ctx context.Context, method HTTPMethod, request
 			bodyReader = bytes.NewReader(bodyBytes)
 			contentType = ct
 		} else {
-			// Fallback a JSON
 			bodyBytes, err := json.Marshal(body)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal body to JSON: %w", err)
@@ -148,16 +139,13 @@ func (c *Client[T]) buildRequest(ctx context.Context, method HTTPMethod, request
 		}
 	}
 
-	// Crea la richiesta
 	req, err := http.NewRequestWithContext(ctx, string(method), fullURL, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Imposta headers
 	c.setHeaders(req, config, contentType)
 
-	// Imposta autenticazione
 	if err := c.setAuthentication(req, config); err != nil {
 		return nil, fmt.Errorf("failed to set authentication: %w", err)
 	}
@@ -171,7 +159,6 @@ func (c *Client[T]) executeWithRetry(ctx context.Context, req *http.Request, con
 	var lastResponse *Response[T]
 
 	for attempt := 1; attempt <= c.retry.MaxAttempts(); attempt++ {
-		// Clone della richiesta per ogni tentativo
 		clonedReq := req.Clone(ctx)
 
 		response, err := c.executeSingleRequest(ctx, clonedReq, config, start, attempt)
@@ -182,17 +169,14 @@ func (c *Client[T]) executeWithRetry(ctx context.Context, req *http.Request, con
 		lastErr = err
 		lastResponse = response
 
-		// Verifica se dovremmo riprovare
 		if !c.retry.ShouldRetry(attempt, err, nil) {
 			break
 		}
 
-		// Registra il tentativo di retry
 		if config.EnableMetrics && c.metrics != nil {
 			c.metrics.RecordRetryAttempt(string(HTTPMethod(req.Method)), req.URL.Path, attempt)
 		}
 
-		// Attendi prima del prossimo tentativo
 		if attempt < c.retry.MaxAttempts() {
 			delay := c.retry.GetDelay(attempt)
 			select {
@@ -208,7 +192,6 @@ func (c *Client[T]) executeWithRetry(ctx context.Context, req *http.Request, con
 
 // executeSingleRequest esegue una singola richiesta HTTP
 func (c *Client[T]) executeSingleRequest(ctx context.Context, req *http.Request, config RequestConfig, start time.Time, attempt int) (*Response[T], error) {
-	// Avvia tracing se abilitato
 	if config.EnableTracing && c.tracer != nil {
 		spanCtx, span := c.tracer.StartSpan(ctx, fmt.Sprintf("HTTP %s", req.Method))
 		defer span.End()
@@ -219,44 +202,37 @@ func (c *Client[T]) executeSingleRequest(ctx context.Context, req *http.Request,
 		span.SetAttribute("attempt", attempt)
 	}
 
-	// Event hooks
 	for _, hook := range c.config.EventHooks {
 		hook.OnRequestStart(req.Context(), req)
 	}
 
-	// Applica middleware
 	response, err := c.applyMiddleware(req, func(r *http.Request) (*http.Response, error) {
 		return c.httpClient.Do(r)
 	})
 
 	duration := time.Since(start)
 
-	// Event hooks
 	for _, hook := range c.config.EventHooks {
 		hook.OnRequestEnd(req.Context(), req, response, err)
 	}
 
 	if err != nil {
-		// Registra errore nelle metriche
 		if config.EnableMetrics && c.metrics != nil {
 			c.metrics.RecordError(req.Method, req.URL.Path, string(ErrorTypeConnection))
 		}
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
 
-	// Leggi il body della risposta
 	bodyBytes, err := io.ReadAll(response.Body)
 	response.Body.Close()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	// Registra metriche
 	if config.EnableMetrics && c.metrics != nil {
 		c.metrics.RecordRequest(req.Method, req.URL.Path, duration, response.StatusCode)
 	}
 
-	// Decodifica la risposta
 	var data *T
 	if len(bodyBytes) > 0 && response.StatusCode >= 200 && response.StatusCode < 300 {
 		if c.decoder != nil && c.decoder.CanDecode(response.Header.Get("Content-Type")) {
@@ -266,9 +242,10 @@ func (c *Client[T]) executeSingleRequest(ctx context.Context, req *http.Request,
 			}
 			data = decoded
 		} else {
-			// Fallback a JSON
 			var decoded T
-			if err := json.Unmarshal(bodyBytes, &decoded); err == nil {
+			decoder := json.NewDecoder(bytes.NewReader(bodyBytes))
+			decoder.UseNumber()
+			if err := decoder.Decode(&decoded); err == nil {
 				data = &decoded
 			}
 		}
@@ -283,7 +260,6 @@ func (c *Client[T]) executeSingleRequest(ctx context.Context, req *http.Request,
 		Attempts:   attempt,
 	}
 
-	// Salva in cache se abilitato e richiesta GET successful
 	if config.EnableCache && c.cache != nil && req.Method == "GET" &&
 		response.StatusCode >= 200 && response.StatusCode < 300 &&
 		config.CacheKey != "" && data != nil {
@@ -319,17 +295,14 @@ func (c *Client[T]) buildURL(requestURL string, queryParams map[string]string) s
 
 // setHeaders imposta gli headers della richiesta
 func (c *Client[T]) setHeaders(req *http.Request, config RequestConfig, contentType string) {
-	// Headers di default del client
 	for key, value := range c.config.DefaultHeaders {
 		req.Header.Set(key, value)
 	}
 
-	// Headers specifici della richiesta
 	for key, value := range config.Headers {
 		req.Header.Set(key, value)
 	}
 
-	// Content-Type se specificato
 	if contentType != "" {
 		if config.ContentType != "" {
 			req.Header.Set("Content-Type", config.ContentType)
@@ -341,24 +314,20 @@ func (c *Client[T]) setHeaders(req *http.Request, config RequestConfig, contentT
 
 // setAuthentication imposta l'autenticazione della richiesta
 func (c *Client[T]) setAuthentication(req *http.Request, config RequestConfig) error {
-	// Bearer token
 	if config.BearerToken != "" {
 		req.Header.Set("Authorization", "Bearer "+config.BearerToken)
 		return nil
 	}
 
-	// Basic auth
 	if config.BasicAuth != nil {
 		req.SetBasicAuth(config.BasicAuth.Username, config.BasicAuth.Password)
 		return nil
 	}
 
-	// Custom auth
 	if config.CustomAuth != nil {
 		return config.CustomAuth.SetAuth(req)
 	}
 
-	// Default auth del client
 	if c.config.DefaultAuth != nil {
 		return c.config.DefaultAuth.SetAuth(req)
 	}
@@ -368,12 +337,10 @@ func (c *Client[T]) setAuthentication(req *http.Request, config RequestConfig) e
 
 // applyMiddleware applica i middleware alla richiesta
 func (c *Client[T]) applyMiddleware(req *http.Request, next func(*http.Request) (*http.Response, error)) (*http.Response, error) {
-	// Se non ci sono middleware, esegui direttamente
 	if len(c.config.Middlewares) == 0 {
 		return next(req)
 	}
 
-	// Crea la catena di middleware
 	handler := next
 	for i := len(c.config.Middlewares) - 1; i >= 0; i-- {
 		middleware := c.config.Middlewares[i]

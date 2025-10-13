@@ -80,11 +80,10 @@ func (ob *OrchestrationBuilder[T]) Step(name string, builderFunc func(ctx map[st
 // Then aggiunge un step condizionale che si esegue dopo il successo del precedente
 func (ob *OrchestrationBuilder[T]) Then(name string, builderFunc func(ctx map[string]any) RequestBuilder[T]) *StepBuilder[T] {
 	return ob.Step(name, builderFunc).When(func(ctx map[string]any) bool {
-		// Esegui solo se l'ultimo step è stato un successo
 		if len(ob.steps) == 0 {
 			return true
 		}
-		return true // La logica di successo verrà gestita durante l'esecuzione
+		return true
 	})
 }
 
@@ -130,12 +129,10 @@ func (ob *OrchestrationBuilder[T]) Execute(ctx context.Context) (*OrchestrationR
 		Success: true,
 	}
 
-	// Copia il context iniziale
 	for k, v := range ob.context {
 		result.Context[k] = v
 	}
 
-	// Crea un context con timeout
 	timeoutCtx, cancel := context.WithTimeout(ctx, ob.timeout)
 	defer cancel()
 
@@ -150,7 +147,6 @@ func (ob *OrchestrationBuilder[T]) Execute(ctx context.Context) (*OrchestrationR
 	result.Error = err
 	result.Success = err == nil
 
-	// Chiama i callback
 	if err != nil && ob.onError != nil {
 		ob.onError(err, result)
 	}
@@ -171,7 +167,6 @@ func (ob *OrchestrationBuilder[T]) executeSequential(ctx context.Context, result
 			return fmt.Errorf("required step '%s' failed: %w", step.Name, err)
 		}
 
-		// Se lo step non è riuscito e non è required, continua
 		if err != nil {
 			continue
 		}
@@ -203,12 +198,10 @@ func (ob *OrchestrationBuilder[T]) executeParallel(ctx context.Context, result *
 	close(resultsChan)
 	close(errorsChan)
 
-	// Raccogli i risultati
 	for stepResult := range resultsChan {
 		result.Steps = append(result.Steps, stepResult)
 	}
 
-	// Controlla gli errori
 	for err := range errorsChan {
 		return err
 	}
@@ -224,7 +217,6 @@ func (ob *OrchestrationBuilder[T]) executeStep(ctx context.Context, step Orchest
 		Name: step.Name,
 	}
 
-	// Controlla la condizione
 	if step.Condition != nil && !step.Condition(sharedContext) {
 		stepResult.Skipped = true
 		stepResult.Success = true
@@ -232,10 +224,8 @@ func (ob *OrchestrationBuilder[T]) executeStep(ctx context.Context, step Orchest
 		return stepResult, nil
 	}
 
-	// Costruisci la richiesta
 	builder := step.Builder(sharedContext)
 
-	// Applica configurazioni specifiche dello step
 	if step.Timeout > 0 {
 		builder = builder.WithTimeout(step.Timeout)
 	}
@@ -243,7 +233,6 @@ func (ob *OrchestrationBuilder[T]) executeStep(ctx context.Context, step Orchest
 		builder = builder.WithRetryConfig(step.RetryConfig)
 	}
 
-	// Esegui la richiesta (assumiamo GET per semplicità, ma può essere configurabile)
 	response, err := builder.Get(ctx)
 
 	stepResult.Duration = time.Since(start)
@@ -252,7 +241,6 @@ func (ob *OrchestrationBuilder[T]) executeStep(ctx context.Context, step Orchest
 		stepResult.Error = err
 		stepResult.Success = false
 
-		// Chiama onFail se definito
 		if step.OnFail != nil {
 			if failErr := step.OnFail(err, sharedContext); failErr != nil {
 				return stepResult, failErr
@@ -266,7 +254,6 @@ func (ob *OrchestrationBuilder[T]) executeStep(ctx context.Context, step Orchest
 	stepResult.StatusCode = response.StatusCode
 	stepResult.Data = response.Data
 
-	// Gestisci status code specifici
 	if handler, exists := step.OnStatus[response.StatusCode]; exists {
 		if err := handler(response, sharedContext); err != nil {
 			stepResult.Success = false
@@ -275,7 +262,6 @@ func (ob *OrchestrationBuilder[T]) executeStep(ctx context.Context, step Orchest
 		}
 	}
 
-	// Chiama onSuccess se definito
 	if step.OnSuccess != nil {
 		if err := step.OnSuccess(response, sharedContext); err != nil {
 			stepResult.Success = false
@@ -284,7 +270,6 @@ func (ob *OrchestrationBuilder[T]) executeStep(ctx context.Context, step Orchest
 		}
 	}
 
-	// Applica trasformazione se definita
 	if step.Transform != nil {
 		transformed, err := step.Transform(response, sharedContext)
 		if err != nil {
@@ -372,8 +357,6 @@ func (sb *StepBuilder[T]) End() *OrchestrationBuilder[T] {
 	return sb.orchestration
 }
 
-// Metodi di convenienza per pattern comuni
-
 // SaveToContext salva il risultato nel context condiviso
 func (sb *StepBuilder[T]) SaveToContext(key string) *StepBuilder[T] {
 	return sb.OnSuccess(func(response *Response[T], ctx map[string]any) error {
@@ -422,7 +405,7 @@ func (sb *StepBuilder[T]) Log(logger Logger) *StepBuilder[T] {
 	})
 	sb.OnFail(func(err error, ctx map[string]any) error {
 		logger.Error("Step failed", "step", sb.step.Name, "error", err)
-		return nil // Non propagare l'errore, solo loggalo
+		return nil
 	})
 	return sb
 }

@@ -39,7 +39,6 @@ type DefaultCircuitBreaker struct {
 
 // NewCircuitBreaker crea un nuovo circuit breaker
 func NewCircuitBreaker(name string, config CircuitBreakerConfig) *DefaultCircuitBreaker {
-	// Imposta valori di default se non specificati
 	if config.MaxRequests == 0 {
 		config.MaxRequests = 10
 	}
@@ -72,16 +71,13 @@ func NewCircuitBreaker(name string, config CircuitBreakerConfig) *DefaultCircuit
 
 // Execute esegue una funzione attraverso il circuit breaker
 func (cb *DefaultCircuitBreaker) Execute(fn func() error) error {
-	// Controlla se possiamo eseguire la richiesta
 	allowed, err := cb.beforeRequest()
 	if !allowed {
 		return err
 	}
 
-	// Esegui la funzione
 	err = fn()
 
-	// Aggiorna lo stato basandoci sul risultato
 	cb.afterRequest(err == nil)
 
 	return err
@@ -153,7 +149,6 @@ func (cb *DefaultCircuitBreaker) onSuccess() {
 	cb.counts.ConsecutiveSuccesses++
 	cb.counts.ConsecutiveFailures = 0
 
-	// Se siamo in half-open e abbiamo abbastanza successi, chiudi il circuit
 	if cb.state == CircuitHalfOpen && cb.counts.ConsecutiveSuccesses >= cb.config.SuccessThreshold {
 		cb.setState(CircuitClosed)
 		cb.counts = Counts{}
@@ -167,7 +162,6 @@ func (cb *DefaultCircuitBreaker) onFailure() {
 	cb.counts.ConsecutiveFailures++
 	cb.counts.ConsecutiveSuccesses = 0
 
-	// Controlla se dovremmo aprire il circuit
 	if cb.shouldTrip() {
 		cb.setState(CircuitOpen)
 		cb.expiry = time.Now().Add(cb.config.Timeout)
@@ -176,12 +170,10 @@ func (cb *DefaultCircuitBreaker) onFailure() {
 
 // shouldTrip determina se il circuit dovrebbe aprirsi
 func (cb *DefaultCircuitBreaker) shouldTrip() bool {
-	// Se c'è una funzione personalizzata, usala
 	if cb.config.ReadyToTrip != nil {
 		return cb.config.ReadyToTrip(cb.counts)
 	}
 
-	// Logica di default: apri se abbiamo abbastanza richieste e abbastanza fallimenti
 	return cb.counts.Requests >= cb.config.MaxRequests &&
 		cb.counts.ConsecutiveFailures >= cb.config.FailureThreshold
 }
@@ -190,21 +182,18 @@ func (cb *DefaultCircuitBreaker) shouldTrip() bool {
 func (cb *DefaultCircuitBreaker) updateState() {
 	switch cb.state {
 	case CircuitClosed:
-		// Se è scaduto l'intervallo, resetta i contatori
 		if time.Now().After(cb.expiry) {
 			cb.counts = Counts{}
 			cb.expiry = time.Now().Add(cb.config.Interval)
 		}
 
 	case CircuitOpen:
-		// Se è scaduto il timeout, passa a half-open
 		if time.Now().After(cb.expiry) {
 			cb.setState(CircuitHalfOpen)
 			cb.counts = Counts{}
 		}
 
 	case CircuitHalfOpen:
-		// Lo stato half-open viene gestito in onSuccess/onFailure
 	}
 }
 
@@ -213,7 +202,6 @@ func (cb *DefaultCircuitBreaker) setState(newState CircuitState) {
 	oldState := cb.state
 	cb.state = newState
 
-	// Notifica il cambio di stato
 	if oldState != newState && cb.config.OnStateChange != nil {
 		go cb.config.OnStateChange(cb.name, oldState, newState)
 	}
@@ -254,12 +242,10 @@ func (cbm *CircuitBreakerManager) GetBreaker(endpoint string) *DefaultCircuitBre
 	cbm.mutex.Lock()
 	defer cbm.mutex.Unlock()
 
-	// Double-check dopo aver acquisito il write lock
 	if breaker, exists := cbm.breakers[endpoint]; exists {
 		return breaker
 	}
 
-	// Crea un nuovo circuit breaker
 	breaker = NewCircuitBreaker(endpoint, cbm.config)
 	cbm.breakers[endpoint] = breaker
 
@@ -339,8 +325,6 @@ func (cbm *CircuitBreakerManager) Clear() {
 
 	cbm.breakers = make(map[string]*DefaultCircuitBreaker)
 }
-
-// Funzioni helper per configurazioni predefinite
 
 // DefaultCircuitBreakerConfig restituisce una configurazione di default
 func DefaultCircuitBreakerConfig() CircuitBreakerConfig {

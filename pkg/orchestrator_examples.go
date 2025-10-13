@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"espresso/pkg/espresso"
+	"github.com/Andrea-Cavallo/espresso/pkg/espresso"
 )
 
 // AuthResponse Strutture di esempio per gli esempi di orchestrazione
@@ -55,7 +55,7 @@ type PaymentResponse struct {
 func main() {
 	ctx := context.Background()
 
-	fmt.Println("=== Orchestrazione API Examples (Mock Version) ===\n")
+	fmt.Println("=== Orchestrazione API Examples (Mock Version) ===")
 
 	// Esempi base di orchestrazione con simulazione
 	mockBasicOrchestrationExample(ctx)
@@ -238,8 +238,8 @@ func mockChainOrchestrationExample(ctx context.Context) {
 		return
 	}
 
-	fmt.Printf("🎉 Chain completed successfully in %v\n", result.Duration)
-	fmt.Printf("📊 Order ID: %v, Payment ID: %v\n",
+	fmt.Printf("Chain completed successfully in %v\n", result.Duration)
+	fmt.Printf(" Order ID: %v, Payment ID: %v\n",
 		result.Context["order_id"],
 		result.Context["payment_id"])
 	fmt.Println()
@@ -309,8 +309,8 @@ func mockConditionalOrchestrationExample(ctx context.Context) {
 		return
 	}
 
-	fmt.Printf("🎉 Conditional orchestration completed in %v\n", result.Duration)
-	fmt.Printf("📋 Initial context: user_type=%s, amount=%.2f, country=%s\n",
+	fmt.Printf(" Conditional orchestration completed in %v\n", result.Duration)
+	fmt.Printf(" Initial context: user_type=%s, amount=%.2f, country=%s\n",
 		initialContext["user_type"],
 		initialContext["order_amount"],
 		initialContext["country"])
@@ -364,7 +364,7 @@ func mockSagaPatternExample(ctx context.Context) {
 			},
 			// Compensazione: cancella l'ordine
 			func(ctx map[string]any) error {
-				fmt.Println("🔄 COMPENSATING: Cancelling order")
+				fmt.Println(" COMPENSATING: Cancelling order")
 				return nil
 			}).
 		Step("process_payment",
@@ -379,19 +379,19 @@ func mockSagaPatternExample(ctx context.Context) {
 			},
 			// Compensazione: rimborsa il pagamento
 			func(ctx map[string]any) error {
-				fmt.Println("🔄 COMPENSATING: Refunding payment")
+				fmt.Println(" COMPENSATING: Refunding payment")
 				return nil
 			}).
 		Execute(ctx)
 
 	if err != nil {
-		fmt.Printf("⚠️ Saga failed as expected: %v\n", err)
+		fmt.Printf("Saga failed as expected: %v\n", err)
 		fmt.Println("✓ Compensations were executed to rollback the transaction")
 	} else {
-		fmt.Printf("🎉 Saga completed successfully in %v\n", result.Duration)
+		fmt.Printf(" Saga completed successfully in %v\n", result.Duration)
 	}
 
-	fmt.Printf("📊 Execution summary:\n")
+	fmt.Printf(" Execution summary:\n")
 	for _, step := range result.Steps {
 		status := "SUCCESS"
 		if !step.Success {
@@ -480,8 +480,8 @@ func mockE2EWorkflowExample(ctx context.Context) {
 		return
 	}
 
-	fmt.Printf("🎉 E2E Workflow completed successfully in %v\n", result.Duration)
-	fmt.Printf("📋 Final summary:\n")
+	fmt.Printf(" E2E Workflow completed successfully in %v\n", result.Duration)
+	fmt.Printf(" Final summary:\n")
 	fmt.Printf("  Order ID: %v\n", result.Context["order_id"])
 	fmt.Printf("  Final Total: $%.2f\n", result.Context["total_with_shipping"])
 	fmt.Printf("  Discount: $%.2f\n", result.Context["discount_applied"])
@@ -502,9 +502,9 @@ func mockErrorHandlingExample(ctx context.Context) {
 			return client.Request("https://httpbin.org/status/500")
 		}).
 		OnFail(func(err error, ctx map[string]any) error {
-			fmt.Printf("⚠️ Risky operation failed: %v\n", err)
+			fmt.Printf("⚠ Risky operation failed: %v\n", err)
 			ctx["fallback_used"] = true
-			return nil // Non propagare l'errore
+			return nil
 		}).
 		Optional(). // Rendi questo step opzionale
 		End().
@@ -529,10 +529,10 @@ func mockErrorHandlingExample(ctx context.Context) {
 		}).
 		End().
 		OnComplete(func(result *espresso.OrchestrationResult[any]) {
-			fmt.Printf("🔔 Orchestration completed callback triggered\n")
+			fmt.Printf(" Orchestration completed callback triggered\n")
 		}).
 		OnError(func(err error, result *espresso.OrchestrationResult[any]) {
-			fmt.Printf("🚨 Orchestration error callback: %v\n", err)
+			fmt.Printf(" Orchestration error callback: %v\n", err)
 		}).
 		Execute(ctx)
 
@@ -541,8 +541,8 @@ func mockErrorHandlingExample(ctx context.Context) {
 		return
 	}
 
-	fmt.Printf("🎉 Error Handling example completed in %v\n", result.Duration)
-	fmt.Printf("📊 Error handling summary:\n")
+	fmt.Printf("Error Handling example completed in %v\n", result.Duration)
+	fmt.Printf(" Error handling summary:\n")
 	for _, step := range result.Steps {
 		status := "SUCCESS"
 		if !step.Success {

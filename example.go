@@ -2,10 +2,11 @@ package main
 
 import (
 	"context"
-	"espresso/pkg/espresso"
 	"fmt"
 	"log"
 	"time"
+
+	"github.com/Andrea-Cavallo/espresso/pkg/espresso"
 )
 
 // User rappresenta un utente di esempio
