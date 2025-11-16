@@ -1,0 +1,33 @@
+# golangci-lint configuration
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gofmt
+    - goimports
+
+linters-settings:
+  errcheck:
+    # Don't check error in defer statements
+    check-blank: true
+    # Exclude these functions from error checking
+    exclude-functions:
+      - (*net/http.ResponseWriter).Write
+      - (*encoding/json.Encoder).Encode
+
+issues:
+  exclude-rules:
+    # Exclude error checking in test files for http handlers
+    - path: _test\.go
+      linters:
+        - errcheck
+      text: "Error return value of.*is not checked"
+
+    # Exclude unused code in test helpers
+    - path: _test\.go
+      linters:
+        - unused

@@ -263,7 +263,8 @@ func (c *Client[T]) executeSingleRequest(ctx context.Context, req *http.Request,
 	if config.EnableCache && c.cache != nil && req.Method == "GET" &&
 		response.StatusCode >= 200 && response.StatusCode < 300 &&
 		config.CacheKey != "" && data != nil {
-		c.cache.Set(config.CacheKey, *data, config.CacheTTL)
+		// Ignore cache errors - cache failures should not fail the request
+		_ = c.cache.Set(config.CacheKey, *data, config.CacheTTL)
 	}
 
 	return result, nil

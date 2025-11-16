@@ -62,7 +62,9 @@ func TestInMemoryCache_Delete(t *testing.T) {
 	key := "delete-key"
 	value := "delete-value"
 
-	cache.Set(key, value, 1*time.Minute)
+	if err := cache.Set(key, value, 1*time.Minute); err != nil {
+		t.Fatalf("Set failed: %v", err)
+	}
 
 	err := cache.Delete(key)
 	if err != nil {
@@ -79,9 +81,15 @@ func TestInMemoryCache_Clear(t *testing.T) {
 	cache := NewInMemoryCache[string]()
 	defer cache.Close()
 
-	cache.Set("key1", "value1", 1*time.Minute)
-	cache.Set("key2", "value2", 1*time.Minute)
-	cache.Set("key3", "value3", 1*time.Minute)
+	if err := cache.Set("key1", "value1", 1*time.Minute); err != nil {
+		t.Fatalf("Set failed: %v", err)
+	}
+	if err := cache.Set("key2", "value2", 1*time.Minute); err != nil {
+		t.Fatalf("Set failed: %v", err)
+	}
+	if err := cache.Set("key3", "value3", 1*time.Minute); err != nil {
+		t.Fatalf("Set failed: %v", err)
+	}
 
 	if cache.Size() != 3 {
 		t.Fatalf("Expected size 3, got %d", cache.Size())
