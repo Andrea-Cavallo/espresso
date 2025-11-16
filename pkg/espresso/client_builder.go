@@ -131,6 +131,36 @@ func (cb *ClientBuilder[T]) WithCache() *ClientBuilder[T] {
 	return cb
 }
 
+func (cb *ClientBuilder[T]) WithRateLimiter(rps, burst int) *ClientBuilder[T] {
+	cb.config.RateLimiterConfig = &RateLimiterConfig{
+		RequestsPerSecond: rps,
+		Burst:             burst,
+	}
+	return cb
+}
+
+func (cb *ClientBuilder[T]) WithTokenBucketRateLimit(rps, burst int) *ClientBuilder[T] {
+	return cb.WithRateLimiter(rps, burst)
+}
+
+func (cb *ClientBuilder[T]) WithSlidingWindowRateLimit(limit int, window time.Duration) *ClientBuilder[T] {
+	cb.config.RateLimiterConfig = &RateLimiterConfig{
+		Limit:      limit,
+		Window:     window,
+		LimiterType: "sliding_window",
+	}
+	return cb
+}
+
+func (cb *ClientBuilder[T]) WithFixedWindowRateLimit(limit int, window time.Duration) *ClientBuilder[T] {
+	cb.config.RateLimiterConfig = &RateLimiterConfig{
+		Limit:      limit,
+		Window:     window,
+		LimiterType: "fixed_window",
+	}
+	return cb
+}
+
 func (cb *ClientBuilder[T]) WithTransport(transport Transport) *ClientBuilder[T] {
 	cb.config.Transport = transport
 	return cb
@@ -188,6 +218,46 @@ func (cb *ClientBuilder[T]) Build() *Client[T] {
 			Timeout:   cb.config.Timeout,
 			Transport: cb.config.Transport,
 		},
+	}
+
+	// Configura retry strategy se presente
+	if cb.config.RetryConfig != nil {
+		client.SetRetryStrategy(NewRetryStrategy(*cb.config.RetryConfig))
+	}
+
+	// Configura circuit breaker se presente
+	if cb.config.CircuitConfig != nil {
+		client.SetCircuitBreaker(NewCircuitBreaker("default", *cb.config.CircuitConfig))
+	}
+
+	// Configura cache di default se abilitata
+	if cb.config.CacheEnabled {
+		client.SetCacheProvider(NewInMemoryCache[T]())
+	}
+
+	// Configura rate limiter se presente
+	if cb.config.RateLimiterConfig != nil {
+		cfg := cb.config.RateLimiterConfig
+		var limiter RateLimiter
+
+		switch cfg.LimiterType {
+		case "sliding_window":
+			limiter = NewSlidingWindowRateLimiter(cfg.Limit, cfg.Window)
+		case "fixed_window":
+			limiter = NewFixedWindowRateLimiter(cfg.Limit, cfg.Window)
+		default: // token_bucket o default
+			rps := cfg.RequestsPerSecond
+			burst := cfg.Burst
+			if rps == 0 {
+				rps = 100 // default 100 req/sec
+			}
+			if burst == 0 {
+				burst = 200 // default burst 200
+			}
+			limiter = NewTokenBucketRateLimiter(rps, burst)
+		}
+
+		client.SetRateLimiter(limiter)
 	}
 
 	return client

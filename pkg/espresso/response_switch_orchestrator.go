@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 // ResponseSwitchBuilder permette di creare branching basato sui contenuti della response
@@ -203,13 +204,55 @@ func (rsb *ResponseSwitchBuilder[T]) extractField(data any, field string) any {
 		return dataMap
 	}
 
-	// Per ora supporta solo campi di primo livello
-	// TODO: implementare supporto per "field.subfield"
+	// Supporto per campi nested: "field.subfield.subsubfield"
+	if strings.Contains(field, ".") {
+		parts := strings.Split(field, ".")
+		var current any = dataMap
+
+		for _, part := range parts {
+			if currentMap, ok := current.(map[string]any); ok {
+				current = currentMap[part]
+			} else {
+				return nil
+			}
+		}
+
+		return current
+	}
+
+	// Campo singolo di primo livello
 	return dataMap[field]
 }
 
-// extractFieldReflection estrae campo usando reflection
+// extractFieldReflection estrae campo usando reflection con supporto per campi nested
 func (rsb *ResponseSwitchBuilder[T]) extractFieldReflection(data any, field string) any {
+	// Supporto per campi nested: "User.Name" o "Address.City.Name"
+	if strings.Contains(field, ".") {
+		parts := strings.Split(field, ".")
+		var current any = data
+
+		for _, part := range parts {
+			val := reflect.ValueOf(current)
+			if val.Kind() == reflect.Ptr {
+				val = val.Elem()
+			}
+
+			if val.Kind() != reflect.Struct {
+				return nil
+			}
+
+			fieldVal := val.FieldByName(part)
+			if !fieldVal.IsValid() {
+				return nil
+			}
+
+			current = fieldVal.Interface()
+		}
+
+		return current
+	}
+
+	// Campo singolo
 	val := reflect.ValueOf(data)
 	if val.Kind() == reflect.Ptr {
 		val = val.Elem()
