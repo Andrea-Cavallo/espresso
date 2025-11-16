@@ -868,9 +868,8 @@ func TestHalfOpenFailureReOpensCircuit(t *testing.T) {
 // Correggi TestRetrySuccess - fai in modo che il server generi un errore di connessione
 func TestRetrySuccess(t *testing.T) {
 	attempts := 0
-	var server *httptest.Server
 
-	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		attempts++
 
 		if attempts < 3 {

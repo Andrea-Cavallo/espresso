@@ -167,12 +167,11 @@ type SlidingWindowRateLimiter struct {
 	segments int           // Numero di segmenti nella finestra
 }
 
-// slidingWindow rappresenta una finestra scorrevole per tracking richieste
+// slidingWindow represents a sliding window for tracking requests
 type slidingWindow struct {
-	mu       sync.Mutex
-	counts   []int
-	times    []time.Time
-	position int
+	mu     sync.Mutex
+	counts []int
+	times  []time.Time
 }
 
 // NewSlidingWindowRateLimiter crea un nuovo rate limiter con finestra scorrevole

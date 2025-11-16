@@ -33,7 +33,7 @@ go get github.com/Andrea-Cavallo/espresso
 
 ## Quick Start
 
-### Basic Usage
+### Minimal Example (3 lines!)
 
 ```go
 package main
@@ -42,8 +42,6 @@ import (
     "context"
     "fmt"
     "log"
-    "time"
-
     "github.com/Andrea-Cavallo/espresso/pkg/espresso"
 )
 
@@ -54,27 +52,52 @@ type User struct {
 }
 
 func main() {
-    // Create a resilient client with retry, circuit breaker, and cache
-    client := espresso.NewResilientClient[User]()
-
-    ctx := context.Background()
-
-    response, err := client.Request("https://api.example.com/users/1").
-        WithBearerToken("your-token").
-        WithTimeout(10 * time.Second).
-        Get(ctx)
+    client := espresso.NewDefaultClient[User]()
+    response, err := client.Request("https://api.example.com/users/1").Get(context.Background())
 
     if err != nil {
         log.Fatal(err)
     }
-
-    fmt.Printf("User: %s (%s)\n", response.Data.Name, response.Data.Email)
+    fmt.Printf("User: %s\n", response.Data.Name)
 }
 ```
 
-### Custom Client Configuration
+### With Automatic Retry
 
 ```go
+// Create a client with automatic retry (3 attempts)
+client := espresso.NewRetryClient[User](3)
+
+response, err := client.Request("https://api.example.com/users/1").
+    EnableRetry().
+    Get(context.Background())
+```
+
+### Full-Featured Client
+
+```go
+// Client with retry, circuit breaker, and cache
+client := espresso.NewResilientClient[User]()
+
+response, err := client.Request("https://api.example.com/users/1").
+    WithBearerToken("your-token").
+    WithCache("user-1", 5*time.Minute).
+    Get(context.Background())
+```
+
+### Three Easy Ways to Create a Client
+
+```go
+// 1. Default - for simple use cases
+client := espresso.NewDefaultClient[User]()
+
+// 2. With Retry - automatically retries failed requests
+client := espresso.NewRetryClient[User](3) // 3 retry attempts
+
+// 3. Resilient - includes retry, circuit breaker, and cache
+client := espresso.NewResilientClient[User]()
+
+// 4. Custom - full control over configuration
 client := espresso.NewClientBuilder[User]().
     WithBaseURL("https://api.example.com").
     WithTimeout(30 * time.Second).
@@ -82,9 +105,6 @@ client := espresso.NewClientBuilder[User]().
     WithDefaultCircuitBreaker().
     WithCache().
     WithRateLimiter(100, 200). // 100 req/sec, burst 200
-    WithDefaultHeaders(map[string]string{
-        "User-Agent": "MyApp/1.0",
-    }).
     Build()
 ```
 

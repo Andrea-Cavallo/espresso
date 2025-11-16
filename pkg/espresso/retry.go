@@ -188,20 +188,18 @@ func (r *DefaultRetryStrategy) isRetriableError(err error) bool {
 		}
 	}
 
-	// Controlla tipi di errori comuni che sono retriable
+	// Check for common error types that are retriable
 	switch {
 	case isTimeoutError(err):
 		return true
 	case isConnectionError(err):
-		return true
-	case isTemporaryError(err):
 		return true
 	default:
 		return false
 	}
 }
 
-// isTimeoutError controlla se l'errore è un timeout
+// isTimeoutError checks if the error is a timeout
 func isTimeoutError(err error) bool {
 	var netErr net.Error
 	if errors.As(err, &netErr) && netErr.Timeout() {
@@ -210,7 +208,7 @@ func isTimeoutError(err error) bool {
 	return false
 }
 
-// isConnectionError controlla se l'errore è di connessione
+// isConnectionError checks if the error is a connection error
 func isConnectionError(err error) bool {
 	var netErr net.Error
 	if errors.As(err, &netErr) {
@@ -221,15 +219,6 @@ func isConnectionError(err error) bool {
 				return true
 			}
 		}
-	}
-	return false
-}
-
-// isTemporaryError controlla se l'errore è temporaneo
-func isTemporaryError(err error) bool {
-	var netErr net.Error
-	if errors.As(err, &netErr) && netErr.Temporary() {
-		return true
 	}
 	return false
 }
