@@ -6,16 +6,16 @@ import (
 	"time"
 )
 
-// Errori comuni della libreria
+// Common errors returned by the library.
 var (
-	ErrCacheClosed      = errors.New("cache is closed")
+	ErrCacheClosed       = errors.New("cache is closed")
 	ErrRateLimitExceeded = errors.New("rate limit exceeded")
-	ErrCircuitOpen      = errors.New("circuit breaker is open")
-	ErrInvalidConfig    = errors.New("invalid configuration")
-	ErrTimeout          = errors.New("request timeout")
+	ErrCircuitOpen       = errors.New("circuit breaker is open")
+	ErrInvalidConfig     = errors.New("invalid configuration")
+	ErrTimeout           = errors.New("request timeout")
 )
 
-// Response rappresenta una risposta HTTP generica
+// Response represents an HTTP response with typed data and metadata.
 type Response[T any] struct {
 	Data       *T
 	StatusCode int
@@ -26,7 +26,7 @@ type Response[T any] struct {
 	Attempts   int
 }
 
-// RequestConfig contiene la configurazione per una richiesta
+// RequestConfig contains configuration for a single HTTP request.
 type RequestConfig struct {
 	// Feature flags
 	EnableRetry          bool
@@ -35,7 +35,7 @@ type RequestConfig struct {
 	EnableCache          bool
 	EnableTracing        bool
 
-	// Headers e parametri
+	// Headers and query parameters
 	Headers     map[string]string
 	QueryParams map[string]string
 
@@ -44,7 +44,7 @@ type RequestConfig struct {
 	BasicAuth   *BasicAuth
 	CustomAuth  AuthProvider
 
-	// Timeout specifico per questa richiesta
+	// Request-specific timeout override
 	Timeout time.Duration
 
 	// Cache settings
@@ -54,20 +54,20 @@ type RequestConfig struct {
 	// Content-Type override
 	ContentType string
 
-	// Retry specifico per questa richiesta
+	// Request-specific retry configuration
 	RetryConfig *RetryConfig
 
-	// Circuit breaker specifico
+	// Request-specific circuit breaker configuration
 	CircuitBreakerConfig *CircuitBreakerConfig
 }
 
-// BasicAuth rappresenta l'autenticazione basic
+// BasicAuth represents HTTP Basic Authentication credentials.
 type BasicAuth struct {
 	Username string
 	Password string
 }
 
-// RetryConfig contiene la configurazione del retry
+// RetryConfig contains retry policy configuration.
 type RetryConfig struct {
 	MaxAttempts     int
 	BaseDelay       time.Duration
@@ -79,9 +79,7 @@ type RetryConfig struct {
 	BackoffStrategy BackoffStrategy
 }
 
-// CircuitBreakerConfig contiene la configurazione del circuit breaker
-
-// RateLimiterConfig contiene la configurazione del rate limiter
+// RateLimiterConfig contains rate limiter configuration.
 type RateLimiterConfig struct {
 	RequestsPerSecond int
 	Burst             int
@@ -90,7 +88,7 @@ type RateLimiterConfig struct {
 	LimiterType       string // "token_bucket", "sliding_window", "fixed_window"
 }
 
-// ClientConfig contiene la configurazione globale del client
+// ClientConfig contains the global client configuration.
 type ClientConfig struct {
 	BaseURL           string
 	Timeout           time.Duration
@@ -111,7 +109,7 @@ type ClientConfig struct {
 	IdleConnTimeout   time.Duration
 }
 
-// RequestBuilder fornisce un'API fluente per costruire richieste
+// RequestBuilder provides a fluent API for building HTTP requests.
 type RequestBuilder[T any] struct {
 	client *Client[T]
 	url    string
@@ -119,7 +117,7 @@ type RequestBuilder[T any] struct {
 	body   any
 }
 
-// JitterType definisce i tipi di jitter disponibili
+// JitterType defines the available jitter algorithms for retry delays.
 type JitterType int
 
 const (
@@ -141,7 +139,7 @@ func (j JitterType) String() string {
 	}
 }
 
-// BackoffStrategy definisce le strategie di backoff
+// BackoffStrategy defines the available backoff strategies for retries.
 type BackoffStrategy int
 
 const (
@@ -166,7 +164,7 @@ func (b BackoffStrategy) String() string {
 	}
 }
 
-// CircuitState rappresenta lo stato del circuit breaker
+// CircuitState represents the current state of a circuit breaker.
 type CircuitState int
 
 const (
@@ -188,7 +186,7 @@ func (c CircuitState) String() string {
 	}
 }
 
-// SpanStatusCode rappresenta lo stato di uno span
+// SpanStatusCode represents the status of a tracing span.
 type SpanStatusCode int
 
 const (
@@ -197,7 +195,7 @@ const (
 	SpanStatusTimeout
 )
 
-// ErrorType definisce i tipi di errori
+// ErrorType defines categorized error types for monitoring and handling.
 type ErrorType string
 
 const (
@@ -211,7 +209,7 @@ const (
 	ErrorTypeUnknown        ErrorType = "unknown"
 )
 
-// HTTPMethod definisce i metodi HTTP supportati
+// HTTPMethod defines the supported HTTP methods.
 type HTTPMethod string
 
 const (
@@ -224,7 +222,7 @@ const (
 	MethodOptions HTTPMethod = "OPTIONS"
 )
 
-// ContentType definisce i content type comuni
+// ContentType defines commonly used content types.
 type ContentType string
 
 const (
