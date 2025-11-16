@@ -1,8 +1,18 @@
 package espresso
 
 import (
+	"errors"
 	"net/http"
 	"time"
+)
+
+// Errori comuni della libreria
+var (
+	ErrCacheClosed      = errors.New("cache is closed")
+	ErrRateLimitExceeded = errors.New("rate limit exceeded")
+	ErrCircuitOpen      = errors.New("circuit breaker is open")
+	ErrInvalidConfig    = errors.New("invalid configuration")
+	ErrTimeout          = errors.New("request timeout")
 )
 
 // Response rappresenta una risposta HTTP generica
@@ -71,24 +81,34 @@ type RetryConfig struct {
 
 // CircuitBreakerConfig contiene la configurazione del circuit breaker
 
+// RateLimiterConfig contiene la configurazione del rate limiter
+type RateLimiterConfig struct {
+	RequestsPerSecond int
+	Burst             int
+	Limit             int
+	Window            time.Duration
+	LimiterType       string // "token_bucket", "sliding_window", "fixed_window"
+}
+
 // ClientConfig contiene la configurazione globale del client
 type ClientConfig struct {
-	BaseURL         string
-	Timeout         time.Duration
-	DefaultHeaders  map[string]string
-	DefaultAuth     AuthProvider
-	RetryConfig     *RetryConfig
-	CircuitConfig   *CircuitBreakerConfig
-	MetricsEnabled  bool
-	TracingEnabled  bool
-	CacheEnabled    bool
-	Transport       Transport
-	Middlewares     []Middleware
-	EventHooks      []EventHook
-	Logger          Logger
-	MaxIdleConns    int
-	MaxConnsPerHost int
-	IdleConnTimeout time.Duration
+	BaseURL           string
+	Timeout           time.Duration
+	DefaultHeaders    map[string]string
+	DefaultAuth       AuthProvider
+	RetryConfig       *RetryConfig
+	CircuitConfig     *CircuitBreakerConfig
+	RateLimiterConfig *RateLimiterConfig
+	MetricsEnabled    bool
+	TracingEnabled    bool
+	CacheEnabled      bool
+	Transport         Transport
+	Middlewares       []Middleware
+	EventHooks        []EventHook
+	Logger            Logger
+	MaxIdleConns      int
+	MaxConnsPerHost   int
+	IdleConnTimeout   time.Duration
 }
 
 // RequestBuilder fornisce un'API fluente per costruire richieste
