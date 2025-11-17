@@ -1,6 +1,6 @@
 # Espresso
 
-A production-ready, type-safe HTTP client library for Go with advanced orchestration capabilities.
+A production-ready, type-safe HTTP client library for Go with advanced orchestration capabilities and complete Enterprise Integration Patterns (EIP) support.
 
 [![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.21-blue)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -13,6 +13,8 @@ Espresso is a comprehensive HTTP client library designed for building resilient,
 ### Key Features
 
 - **Type Safety**: Full generics support for compile-time type checking
+- **Enterprise Integration Patterns**: 45+ EIP patterns including routing, transformation, channels, and endpoints
+- **Message-Oriented Middleware**: Complete messaging abstraction layer with channels, routers, and transformers
 - **Resilience**: Built-in retry logic with exponential backoff and jitter
 - **Circuit Breaker**: Automatic failure detection and recovery
 - **Caching**: Multiple caching strategies (in-memory, LRU)
@@ -310,6 +312,322 @@ result, err := client.Patterns().Conditional().
             return client.Request("/default/data")
         }).
     Execute(context.Background())
+```
+
+## Enterprise Integration Patterns (EIP)
+
+Espresso provides a **complete implementation of 45+ Enterprise Integration Patterns** based on the canonical "Enterprise Integration Patterns" book by Gregor Hohpe and Bobby Woolf.
+
+### Message-Oriented Architecture
+
+EIP patterns work with a generic `Message[T]` abstraction instead of HTTP-specific requests:
+
+```go
+// Create a typed message
+order := Order{ID: "123", Amount: 100.0}
+msg := espresso.NewMessage(order)
+msg.SetHeader("priority", "high")
+msg.CorrelationID = "order-flow-123"
+
+// Messages track their complete history
+for _, entry := range msg.History {
+    fmt.Printf("%s: %s at %s\n",
+        entry.Component,
+        entry.Action,
+        entry.Timestamp)
+}
+```
+
+### Core EIP Categories
+
+#### 1. Message Routing Patterns
+
+**Content-Based Router** - Route messages based on content:
+
+```go
+router := espresso.NewContentBasedRouter[Order]("order-router")
+router.AddRoute("high-priority",
+    func(msg *espresso.Message[Order]) bool {
+        return msg.Body.Priority == "high"
+    },
+    highPriorityChannel)
+router.AddRoute("standard",
+    func(msg *espresso.Message[Order]) bool {
+        return msg.Body.Priority == "standard"
+    },
+    standardChannel)
+
+router.RouteAndSend(ctx, orderMessage)
+```
+
+**Recipient List** - Send to multiple recipients:
+
+```go
+recipients := espresso.NewRecipientListRouter[Event]("event-broadcast",
+    analyticsChannel,
+    loggingChannel,
+    metricsChannel,
+)
+
+recipients.Send(ctx, eventMessage)
+```
+
+**Splitter and Aggregator** - Split messages and aggregate results:
+
+```go
+// Split order into items
+splitter := espresso.NewSplitter[Order, OrderItem]("order-splitter",
+    func(ctx context.Context, msg *espresso.Message[Order]) ([]*espresso.Message[OrderItem], error) {
+        var items []*espresso.Message[OrderItem]
+        for _, item := range msg.Body.Items {
+            items = append(items, espresso.NewMessage(item))
+        }
+        return items, nil
+    },
+    itemChannel,
+)
+
+// Aggregate processed items
+aggregator := espresso.NewAggregator[Item, Result](espresso.AggregatorConfig{
+    Name: "result-aggregator",
+    CompletionFunc: func(messages []*espresso.Message[Item]) bool {
+        return len(messages) >= expectedCount
+    },
+    AggregateFunc: func(ctx context.Context, messages []*espresso.Message[Item]) (*espresso.Message[Result], error) {
+        // Combine results
+        return espresso.NewMessage(combinedResult), nil
+    },
+    Timeout: 10 * time.Second,
+})
+```
+
+#### 2. Message Transformation Patterns
+
+**Content Enricher** - Add data from external sources:
+
+```go
+enricher := espresso.NewContentEnricher[User]("user-enricher",
+    func(ctx context.Context, msg *espresso.Message[User]) (*espresso.Message[User], error) {
+        // Fetch additional data
+        profile := fetchUserProfile(msg.Body.ID)
+        msg.Body.Profile = profile
+        return msg, nil
+    },
+)
+```
+
+**Message Translator** - Transform between types:
+
+```go
+translator := espresso.NewMessageTranslator[DTO, Entity]("dto-to-entity",
+    func(ctx context.Context, msg *espresso.Message[DTO]) (*espresso.Message[Entity], error) {
+        entity := convertDTOToEntity(msg.Body)
+        return espresso.NewMessage(entity), nil
+    },
+)
+```
+
+**Pipeline** - Chain transformations:
+
+```go
+pipeline := espresso.NewPipeline[User]("user-pipeline")
+pipeline.AddStage("validate", validationTransformer)
+pipeline.AddStage("sanitize", sanitizationTransformer)
+pipeline.AddStage("enrich", enrichmentTransformer)
+
+result := pipeline.Process(ctx, userMessage)
+```
+
+#### 3. Messaging Channels Patterns
+
+**Publish-Subscribe** - Broadcast to multiple subscribers:
+
+```go
+pubsub := espresso.NewPubSubChannel[Event]("events")
+
+pubsub.Subscribe(analyticsChannel)
+pubsub.Subscribe(loggingChannel)
+pubsub.Subscribe(metricsChannel)
+
+pubsub.Send(ctx, eventMessage) // All subscribers receive it
+```
+
+**Dead Letter Channel** - Handle failed messages:
+
+```go
+dlc := espresso.NewDeadLetterChannel[Order]("orders", mainChannel, 50)
+
+// On processing error
+dlc.SendToDLQ(ctx, failedMessage, err)
+
+// Monitor failed messages
+stats := dlc.GetDLQStats()
+fmt.Printf("Failed: %d messages\n", stats.TotalMessages)
+```
+
+**Wire Tap** - Non-intrusive monitoring:
+
+```go
+wireTap := espresso.NewWireTap[Transaction]("txn-monitor", auditChannel)
+tappedChannel := espresso.NewWireTapChannel("txns", mainChannel, wireTap)
+
+// All messages are automatically copied to audit channel
+tappedChannel.Send(ctx, txnMessage)
+```
+
+**Priority Channel** - Priority-based processing:
+
+```go
+priorities := []int{1, 2, 3, 4, 5} // 1 = highest
+priorityChannel := espresso.NewPriorityChannel[Task]("tasks", priorities, 100)
+
+msg.SetProperty("priority", 1) // High priority
+priorityChannel.Send(ctx, msg)
+
+// Receives highest priority first
+task, _ := priorityChannel.Receive(ctx)
+```
+
+#### 4. Messaging Endpoints Patterns
+
+**Idempotent Receiver** - Process messages exactly once:
+
+```go
+receiver := espresso.NewIdempotentReceiver[Payment]("payment-processor", 24*time.Hour)
+
+// Duplicate messages are automatically ignored
+receiver.Receive(ctx, paymentMessage, paymentHandler)
+```
+
+**Competing Consumers** - Load balancing across workers:
+
+```go
+pool := espresso.NewCompetingConsumers[Task]("worker-pool")
+
+pool.AddConsumer(worker1Handler)
+pool.AddConsumer(worker2Handler)
+pool.AddConsumer(worker3Handler)
+
+pool.Start(ctx, taskChannel)
+
+stats := pool.GetStats()
+fmt.Printf("Processed: %d, Errors: %d\n",
+    stats.TotalProcessed,
+    stats.TotalErrors)
+```
+
+**Service Activator** - Invoke services from messages:
+
+```go
+activator := espresso.NewServiceActivator[Request, Response]("api-service",
+    requestChannel,
+    responseChannel,
+    serviceHandler,
+)
+
+activator.Start(ctx)
+```
+
+#### 5. System Management Patterns
+
+**Process Manager** - Manage complex workflows with state:
+
+```go
+pm := espresso.NewProcessManager[OrderEvent]("order-fulfillment")
+
+// Start process
+pm.StartProcess(ctx, "order-123", initialEvent)
+
+// Track progress
+pm.UpdateProcessStep("order-123", "payment_received")
+pm.UpdateProcessStep("order-123", "shipped")
+
+// Get state
+state, _ := pm.GetProcessState("order-123")
+fmt.Printf("Status: %s, Steps: %d\n",
+    state.Status,
+    len(state.CompletedSteps))
+```
+
+**Control Bus** - Administrative control:
+
+```go
+controlBus := espresso.NewControlBus("system-control")
+
+controlBus.Subscribe(func(ctx context.Context, cmd espresso.ControlCommand) error {
+    switch cmd.Type {
+    case "pause_channel":
+        // Pause operations
+    case "purge_dlq":
+        // Clean dead letter queue
+    }
+    return nil
+})
+
+controlBus.SendCommand(ctx, espresso.ControlCommand{
+    Type:   "pause_channel",
+    Target: "orders",
+})
+```
+
+**Message History Tracker** - Full message tracing:
+
+```go
+tracker := espresso.NewMessageHistoryTracker[Order]("order-tracker")
+
+tracker.Track(orderMessage)
+
+// Get complete message path
+path := tracker.GetMessagePath(correlationID)
+for _, entry := range path {
+    fmt.Printf("%s: %s at %s\n",
+        entry.Component,
+        entry.Action,
+        entry.Timestamp)
+}
+```
+
+### Complete Pattern List
+
+Espresso implements **45+ Enterprise Integration Patterns**:
+
+**Routing (11)**: Content-Based Router, Message Router, Recipient List, Splitter, Aggregator, Resequencer, Message Filter, Composed Message Processor, Routing Slip, Scatter-Gather, Detour
+
+**Transformation (7)**: Message Translator, Content Enricher, Content Filter, Claim Check, Normalizer, Canonical Data Model, Pipeline
+
+**Channels (8)**: Point-to-Point, Publish-Subscribe, Dead Letter Channel, Invalid Message Channel, Guaranteed Delivery, Wire Tap, Priority Channel, Message Bridge
+
+**Endpoints (9)**: Message Endpoint, Polling Consumer, Event-Driven Consumer, Competing Consumers, Message Dispatcher, Selective Consumer, Idempotent Receiver, Service Activator, Transactional Client
+
+**System Management (10)**: Control Bus, Detour, Wire Tap, Message History, Message Store, Smart Proxy, Test Message, Channel Purger, Process Manager, Routing Slip
+
+### EIP Examples
+
+Complete working examples are available in [`examples/eip_patterns_example.go`](examples/eip_patterns_example.go).
+
+For detailed documentation of all patterns, see [`docs/EIP_PATTERNS.md`](docs/EIP_PATTERNS.md).
+
+### Mixing HTTP and EIP Patterns
+
+You can seamlessly combine HTTP orchestration with EIP patterns:
+
+```go
+// Create HTTP client
+httpClient := espresso.NewResilientClient[User]()
+
+// Create EIP message channel
+userChannel := espresso.NewInMemoryChannel[User]("users", 100)
+
+// Route users based on properties
+router := espresso.NewContentBasedRouter[User]("user-router")
+router.AddRoute("premium", isPremium, premiumChannel)
+router.AddRoute("standard", isStandard, standardChannel)
+
+// Process through pipeline
+pipeline := espresso.NewPipeline[User]("user-processing")
+pipeline.AddStage("validate", validator)
+pipeline.AddStage("enrich", enricher)
+pipeline.AddStage("transform", transformer)
 ```
 
 ## Advanced Features
